@@ -2,75 +2,177 @@
 // Mongoose helps us define the structure of our MongoDB documents
 const mongoose = require("mongoose");
 
-// Define the structure of a candidate resume
+
+// ---------------------------------------------
+// RESUME SCHEMA
+// ---------------------------------------------
+
 const resumeSchema = new mongoose.Schema(
+
     {
-        // Candidate's full name
+
+        // -----------------------------------------
+        // CANDIDATE NAME
+        // -----------------------------------------
+
         candidateName: {
+
             type: String,
+
             required: true,
+
             trim: true
+
         },
 
-        // Candidate's email address
+
+        // -----------------------------------------
+        // CANDIDATE EMAIL
+        // -----------------------------------------
+
         email: {
+
             type: String,
+
             required: true,
+
             trim: true
+
         },
 
-        // Extracted skills from the resume
+
+        // -----------------------------------------
+        // EXTRACTED SKILLS
+        // -----------------------------------------
+
         skills: {
+
             type: [String],
+
             default: []
+
         },
 
-        // Total years of experience
+
+        // -----------------------------------------
+        // EXPERIENCE
+        // -----------------------------------------
+
         experience: {
+
             type: Number,
+
             default: 0
+
         },
 
-        // Education information
+
+        // -----------------------------------------
+        // EDUCATION
+        // -----------------------------------------
+
         education: {
+
             type: String,
+
             default: ""
+
         },
 
-        // Original/extracted resume text
+
+        // -----------------------------------------
+        // ORIGINAL RESUME TEXT
+        // -----------------------------------------
+
         resumeText: {
+
             type: String,
+
             default: ""
+
         },
 
-        // Job description against which the resume will be evaluated
+
+        // -----------------------------------------
+        // JOB DESCRIPTION
+        // -----------------------------------------
+
         jobDescription: {
+
             type: String,
+
             default: ""
+
         },
 
-        // AI/RAG-based matching score
+
+        // -----------------------------------------
+        // AI MATCHING SCORE
+        // -----------------------------------------
+
         matchScore: {
+
             type: Number,
+
             default: 0
+
         },
 
-        // Current processing status
+
+        // -----------------------------------------
+        // CURRENT PROCESSING STATUS
+        // -----------------------------------------
+        //
+        // Keep ONE consistent status system.
+        //
+        // uploaded  = resume uploaded
+        // processed = resume processed/analyzed/matched
+        // failed    = processing failed
+        //
+
         status: {
+
             type: String,
-            enum: ["uploaded", "processing", "completed", "failed"],
+
+            enum: [
+                "uploaded",
+                "processed",
+                "failed"
+            ],
+
             default: "uploaded"
+
         }
+
     },
 
+
+    // ---------------------------------------------
+    // AUTOMATIC TIMESTAMPS
+    // ---------------------------------------------
+
     {
-        // Automatically adds createdAt and updatedAt
+
         timestamps: true
+
     }
+
 );
 
-// Convert the schema into a MongoDB model
-const Resume = mongoose.model("Resume", resumeSchema);
 
-// Export the model so other backend files can use it
+// ---------------------------------------------
+// CREATE MODEL
+// ---------------------------------------------
+
+const Resume =
+    mongoose.model(
+        "Resume",
+        resumeSchema
+    );
+
+
+// ---------------------------------------------
+// EXPORT
+// ---------------------------------------------
+
 module.exports = Resume;

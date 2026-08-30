@@ -1,8 +1,8 @@
 # TalentLens AI
 
-TalentLens AI is an intelligent recruitment and resume analysis platform that uses **Generative AI and Retrieval-Augmented Generation (RAG)** to evaluate resumes against job requirements and provide meaningful insights.
+TalentLens AI is an intelligent recruitment and resume analysis platform that uses Generative AI and Retrieval-Augmented Generation (RAG) to evaluate resumes against job requirements and provide meaningful insights.
 
-## 🎯 Project Objective
+## Project Objective
 
 The goal of TalentLens AI is to make resume screening more intelligent, relevant, and explainable by combining traditional backend technologies with AI-powered analysis.
 
@@ -16,7 +16,7 @@ The system will:
 - Provide explainable recommendations
 - Present recruitment insights through an interactive dashboard
 
-## 🚀 Key Features
+## Key Features
 
 - Resume upload and processing
 - Resume information extraction
@@ -28,9 +28,9 @@ The system will:
 - Recruitment analytics
 - Interactive web interface
 
-## 🧠 AI Approach
+## AI Approach
 
-TalentLens AI uses **Retrieval-Augmented Generation (RAG)** to improve the relevance of AI-generated responses.
+TalentLens AI uses Retrieval-Augmented Generation (RAG) to improve the relevance of AI-generated responses.
 
 The planned flow is:
 

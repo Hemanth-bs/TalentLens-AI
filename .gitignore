@@ -1,8 +1,31 @@
-# Environment variables
+# Environment / secrets
 .env
+.env.*
+!.env.example
+*.env
+*.env.txt
 
-# Dependencies
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+
+# Node
 node_modules/
+npm-debug.log*
 
-# Build output
-dist/
+# RAG / local vector database
+chroma_db/
+
+# Generated archives
+*.zip
+
+# Test resumes / uploaded files
+test-resumes/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/

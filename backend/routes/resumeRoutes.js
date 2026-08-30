@@ -1,10 +1,23 @@
 // Import Express
 const express = require("express");
 
-// Create an Express router
+// Create Express router
 const router = express.Router();
 
-// Import the resume controller
+
+// ---------------------------------------------
+// IMPORT MIDDLEWARE
+// ---------------------------------------------
+
+// Resume upload middleware
+const upload = require("../middleware/uploadMiddleware");
+
+
+// ---------------------------------------------
+// IMPORT CONTROLLERS
+// ---------------------------------------------
+
+// Resume CRUD controllers
 const {
     createResume,
     getResumes,
@@ -13,25 +26,94 @@ const {
     deleteResume
 } = require("../controllers/resumeController");
 
+// Resume upload controller
+const {
+    uploadResume
+} = require("../controllers/resumeUploadController");
+
+// Resume intelligence controller
+const {
+    analyzeResumeController
+} = require("../controllers/resumeIntelligenceController");
+
+
+// ---------------------------------------------
+// RESUME UPLOAD
+// ---------------------------------------------
+
+// POST /api/resumes/upload
+//
+// Upload a PDF or DOCX resume.
+//
+// "resume" is the expected multipart/form-data
+// field name.
+router.post(
+    "/upload",
+    upload.single("resume"),
+    uploadResume
+);
+
+
+// ---------------------------------------------
+// RESUME CRUD
+// ---------------------------------------------
+
 // POST /api/resumes
-// Used to create and store a new resume
-router.post("/", createResume);
+// Create a resume manually
+router.post(
+    "/",
+    createResume
+);
+
 
 // GET /api/resumes
-// Used to retrieve all resumes
-router.get("/", getResumes);
+// Get all resumes
+router.get(
+    "/",
+    getResumes
+);
+
 
 // GET /api/resumes/:id
-// Used to retrieve one resume by its MongoDB ID
-router.get("/:id", getResumeById);
+// Get one resume
+router.get(
+    "/:id",
+    getResumeById
+);
+
 
 // PUT /api/resumes/:id
-// Used to update an existing resume
-router.put("/:id", updateResume);
+// Update one resume
+router.put(
+    "/:id",
+    updateResume
+);
+
 
 // DELETE /api/resumes/:id
-// Used to delete an existing resume
-router.delete("/:id", deleteResume);
+// Delete one resume
+router.delete(
+    "/:id",
+    deleteResume
+);
 
-// Export the router
+
+// ---------------------------------------------
+// RESUME INTELLIGENCE
+// ---------------------------------------------
+
+// POST /api/resumes/:id/analyze
+//
+// Analyze the extracted resume text and generate
+// structured candidate information.
+router.post(
+    "/:id/analyze",
+    analyzeResumeController
+);
+
+
+// ---------------------------------------------
+// EXPORT ROUTER
+// ---------------------------------------------
+
 module.exports = router;
