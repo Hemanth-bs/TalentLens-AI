@@ -14,9 +14,18 @@ const connectDB = require("./config/db");
 const Resume = require("./models/Resume");
 const JobDescription = require("./models/JobDescription");
 
+// Candidate profile routes
+const candidateProfileRoutes =
+    require("./routes/candidateProfileRoutes");
+
+// Application routes
+const applicationRoutes =
+    require("./routes/applicationRoutes");
+
 // Import routes
 const resumeRoutes = require("./routes/resumeRoutes");
 const jobDescriptionRoutes = require("./routes/jobDescriptionRoutes");
+const authRoutes = require("./routes/authRoutes");
 
 // Create Express application
 const app = express();
@@ -53,9 +62,22 @@ app.use("/api/resumes", resumeRoutes);
 
 app.use("/api/jobs", jobDescriptionRoutes);
 
+app.use(
+    "/api/candidates",
+    candidateProfileRoutes
+);
+
+// Application APIs
+app.use(
+    "/api/applications",
+    applicationRoutes
+);
+
 app.use("/api/matches", matchingRoutes);
 
 app.use("/api/rankings", rankingRoutes);
+
+app.use("/api/auth", authRoutes);
 
 
 // ---------------------------------------------
@@ -397,9 +419,11 @@ body {
 
 <div class="badges">
 
-${resumeSkills.map(skill =>
-    `<span class="badge">${skill}</span>`
-).join("")}
+${
+    resumeSkills.map(skill =>
+        `<span class="badge">${skill}</span>`
+    ).join("")
+}
 
 </div>
 

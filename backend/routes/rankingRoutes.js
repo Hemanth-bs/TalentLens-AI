@@ -1,26 +1,61 @@
+// ---------------------------------------------
+// TALENTLENS AI - RANKING ROUTES
+// ---------------------------------------------
+
 // Import Express
 const express = require("express");
 
-// Create router
 const router = express.Router();
 
-// Import ranking controller
+
+// ---------------------------------------------
+// IMPORT AUTHENTICATION MIDDLEWARE
+// ---------------------------------------------
+
+const {
+    protect,
+    requireRole
+} = require("../middleware/authMiddleware");
+
+
+// ---------------------------------------------
+// IMPORT RANKING CONTROLLER
+// ---------------------------------------------
+
 const {
     rankCandidatesForJob
 } = require("../controllers/rankingController");
 
 
 // ---------------------------------------------
-// CANDIDATE RANKING ROUTE
+// CANDIDATE RANKING
 // ---------------------------------------------
 
 // GET /api/rankings/:jobId
-// Rank all analyzed candidates for a job
+//
+// Ranking is an HR-only operation.
+//
+// Flow:
+//
+// JWT authentication
+//       ↓
+// HR role verification
+//       ↓
+// Candidate ranking
+//
+// This prevents unauthenticated users and
+// candidates from accessing HR ranking data.
+
 router.get(
     "/:jobId",
+    protect,
+    requireRole("hr"),
     rankCandidatesForJob
 );
 
 
-// Export router
+// ---------------------------------------------
+// EXPORT ROUTER
+// ---------------------------------------------
+
 module.exports = router;

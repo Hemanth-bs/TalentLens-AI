@@ -1,3 +1,7 @@
+// ---------------------------------------------
+// TALENTLENS AI - MATCH MODEL
+// ---------------------------------------------
+
 // Import Mongoose
 // Mongoose is used to define our MongoDB document structure
 const mongoose = require("mongoose");
@@ -25,10 +29,28 @@ const matchSchema = new mongoose.Schema(
 
 
         // -----------------------------------------
+        // APPLICATION REFERENCE
+        // -----------------------------------------
+
+        // Application associated with this match
+        //
+        // This allows HR candidate analysis and
+        // ranking to connect the match directly
+        // to the candidate's application.
+        //
+        applicationId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Application",
+            default: null
+        },
+
+
+        // -----------------------------------------
         // TRADITIONAL MATCHING SCORES
         // -----------------------------------------
 
-        // Score from our existing matching service
+        // Score from the existing traditional
+        // backend matching service
         traditionalScore: {
             type: Number,
             default: 0
@@ -113,8 +135,78 @@ const matchSchema = new mongoose.Schema(
         aiMatchedWords: {
             type: [String],
             default: []
+        },
+
+
+        // -----------------------------------------
+        // MATCH STATUS
+        // -----------------------------------------
+
+        // Indicates whether the stored match was
+        // calculated against the current job data.
+        //
+        // current = freshly calculated
+        // stale   = job requirements changed after
+        //           the match was calculated
+        //
+        matchStatus: {
+            type: String,
+            enum: [
+                "current",
+                "stale"
+            ],
+            default: "current"
+        },
+
+
+        // -----------------------------------------
+        // AI ANALYSIS
+        // -----------------------------------------
+
+        // Stores the detailed AI/LLM analysis
+        // generated during matching.
+        //
+        // Expected information includes:
+        // - matched skills
+        // - missing skills
+        // - transferable skills
+        // - relevant experience
+        // - strengths
+        // - areas for improvement
+        // - HR recommendation
+        // - candidate feedback
+        //
+        // Mixed is used because the AI service
+        // returns a structured object whose exact
+        // internal shape may evolve.
+        //
+        aiAnalysis: {
+            type: mongoose.Schema.Types.Mixed,
+            default: null
+        },
+
+
+        // -----------------------------------------
+        // RAG EVIDENCE
+        // -----------------------------------------
+
+        // Evidence chunks retrieved by RAG during
+        // AI matching.
+        //
+        // These are persisted so the HR Rankings
+        // analysis page can display the evidence
+        // without calling the AI service again.
+        //
+        ragEvidence: {
+            type: [mongoose.Schema.Types.Mixed],
+            default: []
         }
     },
+
+
+    // ---------------------------------------------
+    // AUTOMATIC TIMESTAMPS
+    // ---------------------------------------------
 
     {
         // Automatically stores createdAt and updatedAt
@@ -127,11 +219,16 @@ const matchSchema = new mongoose.Schema(
 // PREVENT DUPLICATE RESUME-JOB MATCHES
 // ---------------------------------------------
 
-// A candidate should have only one current match
-// record for the same job.
+// A candidate should have only one Match record
+// for the same resume and job combination.
 matchSchema.index(
-    { resumeId: 1, jobId: 1 },
-    { unique: true }
+    {
+        resumeId: 1,
+        jobId: 1
+    },
+    {
+        unique: true
+    }
 );
 
 

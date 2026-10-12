@@ -10,6 +10,11 @@ const {
     extractResumeText
 } = require("../services/resumeParserService");
 
+// Import resume intelligence service
+const {
+    analyzeResume
+} = require("../services/resumeIntelligenceService");
+
 // Import FastAPI AI service
 const {
     indexDocument
@@ -25,25 +30,35 @@ const uploadResume = async (req, res) => {
     try {
 
         // -----------------------------------------
-        // 1. CHECK FILE
+        // 1. CHECK AUTHENTICATED USER
         // -----------------------------------------
 
-        if (!req.file) {
+        if (!req.user) {
 
-            return res.status(400).json({
-
+            return res.status(401).json({
                 success: false,
-
-                message:
-                    "Please upload a PDF or DOCX resume"
-
+                message: "Authentication required"
             });
 
         }
 
 
         // -----------------------------------------
-        // 2. EXTRACT RESUME TEXT
+        // 2. CHECK FILE
+        // -----------------------------------------
+
+        if (!req.file) {
+
+            return res.status(400).json({
+                success: false,
+                message: "Please upload a PDF or DOCX resume"
+            });
+
+        }
+
+
+        // -----------------------------------------
+        // 3. EXTRACT RESUME TEXT
         // -----------------------------------------
 
         const resumeText =
@@ -51,7 +66,7 @@ const uploadResume = async (req, res) => {
 
 
         // -----------------------------------------
-        // 3. VALIDATE EXTRACTED TEXT
+        // 4. VALIDATE EXTRACTED TEXT
         // -----------------------------------------
 
         if (
@@ -60,35 +75,42 @@ const uploadResume = async (req, res) => {
         ) {
 
             return res.status(400).json({
-
                 success: false,
-
                 message:
                     "Could not extract text from the resume"
-
             });
 
         }
 
 
         // -----------------------------------------
-        // 4. CREATE RESUME IN MONGODB
+        // 5. CREATE RESUME IN MONGODB
         // -----------------------------------------
 
         const resume =
             await Resume.create({
 
+                // Link resume to authenticated candidate
+                candidate:
+                    req.user._id,
+
+                // Use authenticated user details
                 candidateName:
-                    "Uploaded Candidate",
+                    req.user.name,
 
                 email:
-                    "not-provided@talentlens.ai",
+                    req.user.email,
 
+                // Initial resume data
                 skills: [],
 
                 experience: 0,
 
                 education: "",
+
+                projects: [],
+
+                certifications: [],
 
                 resumeText:
                     resumeText.trim(),
@@ -103,23 +125,103 @@ const uploadResume = async (req, res) => {
 
 
         // -----------------------------------------
-        // 5. INDEX RESUME INTO RAG
+        // 6. RUN RESUME INTELLIGENCE
+        // -----------------------------------------
+
+        try {
+
+            const analysis =
+                analyzeResume(
+                    resume.resumeText
+                );
+
+
+            // Store extracted skills
+            resume.skills =
+                analysis.skills || [];
+
+
+            // Store experience
+            resume.experience =
+                analysis.experience || 0;
+
+
+            // Store education
+            resume.education =
+                analysis.education || "";
+
+
+            // Store projects
+            resume.projects =
+                analysis.projects || [];
+
+
+            // Store certifications
+            resume.certifications =
+                analysis.certifications || [];
+
+
+            // Save structured resume intelligence
+            await resume.save();
+
+
+        } catch (intelligenceError) {
+
+            console.error(
+                "Resume intelligence error:",
+                intelligenceError.message
+            );
+
+
+            resume.status = "failed";
+
+            await resume.save();
+
+
+            return res.status(500).json({
+
+                success: false,
+
+                message:
+                    "Resume uploaded, but resume intelligence processing failed",
+
+                data: {
+
+                    resumeId:
+                        resume._id,
+
+                    status:
+                        resume.status
+
+                }
+
+            });
+
+        }
+
+
+        // -----------------------------------------
+        // 7. INDEX RESUME INTO RAG
         // -----------------------------------------
 
         try {
 
             await indexDocument(
 
-                // Use MongoDB resume ID as the
-                // ChromaDB document ID
+                // Use MongoDB resume ID
+                // as ChromaDB document ID
                 resume._id.toString(),
 
                 // Index extracted resume text
                 resume.resumeText,
 
+                // Metadata
                 {
                     type:
                         "resume",
+
+                    candidateId:
+                        req.user._id.toString(),
 
                     candidateName:
                         resume.candidateName,
@@ -132,7 +234,7 @@ const uploadResume = async (req, res) => {
 
 
             // -------------------------------------
-            // 6. RAG INDEXING SUCCESS
+            // 8. RAG INDEXING SUCCESS
             // -------------------------------------
 
             resume.status =
@@ -144,7 +246,7 @@ const uploadResume = async (req, res) => {
         } catch (ragError) {
 
             // -------------------------------------
-            // 7. RAG INDEXING FAILURE
+            // 9. RAG INDEXING FAILURE
             // -------------------------------------
 
             console.error(
@@ -164,7 +266,7 @@ const uploadResume = async (req, res) => {
                 success: false,
 
                 message:
-                    "Resume was uploaded, but RAG indexing failed",
+                    "Resume was uploaded and analyzed, but RAG indexing failed",
 
                 data: {
 
@@ -182,7 +284,7 @@ const uploadResume = async (req, res) => {
 
 
         // -----------------------------------------
-        // 8. RETURN SUCCESS RESPONSE
+        // 10. RETURN SUCCESS RESPONSE
         // -----------------------------------------
 
         return res.status(201).json({
@@ -190,12 +292,15 @@ const uploadResume = async (req, res) => {
             success: true,
 
             message:
-                "Resume uploaded, processed and indexed successfully",
+                "Resume uploaded, analyzed and indexed successfully",
 
             data: {
 
                 resumeId:
                     resume._id,
+
+                candidateId:
+                    req.user._id,
 
                 fileName:
                     req.file.originalname,
@@ -212,6 +317,21 @@ const uploadResume = async (req, res) => {
                 resumeText:
                     resume.resumeText,
 
+                skills:
+                    resume.skills,
+
+                experience:
+                    resume.experience,
+
+                education:
+                    resume.education,
+
+                projects:
+                    resume.projects,
+
+                certifications:
+                    resume.certifications,
+
                 status:
                     resume.status
 
@@ -219,12 +339,7 @@ const uploadResume = async (req, res) => {
 
         });
 
-
     } catch (error) {
-
-        // -----------------------------------------
-        // ERROR HANDLING
-        // -----------------------------------------
 
         console.error(
             "Resume upload error:",
@@ -237,7 +352,10 @@ const uploadResume = async (req, res) => {
             success: false,
 
             message:
-                "Failed to upload and process resume"
+                "Failed to upload resume",
+
+            error:
+                error.message
 
         });
 
@@ -247,7 +365,7 @@ const uploadResume = async (req, res) => {
 
 
 // ---------------------------------------------
-// EXPORT CONTROLLER
+// EXPORT
 // ---------------------------------------------
 
 module.exports = {

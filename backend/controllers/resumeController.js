@@ -5,11 +5,11 @@ const Resume = require("../models/Resume");
 // ---------------------------------------------
 // CREATE RESUME
 // ---------------------------------------------
-
-// Create a new resume
+// Creates a resume for the currently logged-in candidate.
+// The candidate ID always comes from the JWT user,
+// not from frontend input.
 const createResume = async (req, res) => {
     try {
-        // Get resume data sent by the frontend
         const {
             candidateName,
             email,
@@ -20,10 +20,10 @@ const createResume = async (req, res) => {
             jobDescription
         } = req.body;
 
-        // Create a new Resume document
         const resume = await Resume.create({
-            candidateName,
-            email,
+            candidate: req.user._id,
+            candidateName: req.user.name || candidateName,
+            email: req.user.email || email,
             skills,
             experience,
             education,
@@ -32,7 +32,6 @@ const createResume = async (req, res) => {
             status: "uploaded"
         });
 
-        // Send successful response
         res.status(201).json({
             success: true,
             message: "Resume created successfully",
@@ -40,8 +39,10 @@ const createResume = async (req, res) => {
         });
 
     } catch (error) {
-        // Handle errors
-        console.error("Create resume error:", error.message);
+        console.error(
+            "Create resume error:",
+            error.message
+        );
 
         res.status(500).json({
             success: false,
@@ -52,17 +53,18 @@ const createResume = async (req, res) => {
 
 
 // ---------------------------------------------
-// GET ALL RESUMES
+// GET MY RESUMES
 // ---------------------------------------------
-
-// Get all resumes from MongoDB
+// Returns only resumes belonging to the
+// currently logged-in candidate.
 const getResumes = async (req, res) => {
     try {
-        // Retrieve all resumes
-        // Newest resumes appear first
-        const resumes = await Resume.find().sort({ createdAt: -1 });
+        const resumes = await Resume.find({
+            candidate: req.user._id
+        }).sort({
+            createdAt: -1
+        });
 
-        // Send resumes to the client
         res.status(200).json({
             success: true,
             count: resumes.length,
@@ -70,8 +72,10 @@ const getResumes = async (req, res) => {
         });
 
     } catch (error) {
-        // Handle database errors
-        console.error("Get resumes error:", error.message);
+        console.error(
+            "Get resumes error:",
+            error.message
+        );
 
         res.status(500).json({
             success: false,
@@ -82,35 +86,33 @@ const getResumes = async (req, res) => {
 
 
 // ---------------------------------------------
-// EXPORT CONTROLLERS
-// ---------------------------------------------
-
-// ---------------------------------------------
 // GET SINGLE RESUME
 // ---------------------------------------------
-
-// Get one resume using its MongoDB ID
+// A candidate can retrieve only their own resume.
 const getResumeById = async (req, res) => {
     try {
-        // Get the ID from the URL
-        const resume = await Resume.findById(req.params.id);
+        const resume = await Resume.findOne({
+            _id: req.params.id,
+            candidate: req.user._id
+        });
 
-        // Resume doesn't exist
         if (!resume) {
             return res.status(404).json({
                 success: false,
-                message: "Resume not found"
+                message: "Resume not found or access denied"
             });
         }
 
-        // Send the resume
         res.status(200).json({
             success: true,
             data: resume
         });
 
     } catch (error) {
-        console.error("Get resume error:", error.message);
+        console.error(
+            "Get resume error:",
+            error.message
+        );
 
         res.status(500).json({
             success: false,
@@ -119,35 +121,45 @@ const getResumeById = async (req, res) => {
     }
 };
 
+
 // ---------------------------------------------
 // UPDATE RESUME
 // ---------------------------------------------
-
-// Update an existing resume using its MongoDB ID
+// Updates only a resume belonging to the
+// currently logged-in candidate.
 const updateResume = async (req, res) => {
     try {
-        // Get the resume ID from the URL
         const resumeId = req.params.id;
 
-        // Update the resume with the data sent in the request
-        const updatedResume = await Resume.findByIdAndUpdate(
-            resumeId,
-            req.body,
-            {
-                new: true,
-                runValidators: true
-            }
-        );
+        // Prevent the client from changing ownership.
+        const {
+            candidate,
+            _id,
+            createdAt,
+            updatedAt,
+            ...updateData
+        } = req.body;
 
-        // Resume doesn't exist
+        const updatedResume =
+            await Resume.findOneAndUpdate(
+                {
+                    _id: resumeId,
+                    candidate: req.user._id
+                },
+                updateData,
+                {
+                    new: true,
+                    runValidators: true
+                }
+            );
+
         if (!updatedResume) {
             return res.status(404).json({
                 success: false,
-                message: "Resume not found"
+                message: "Resume not found or access denied"
             });
         }
 
-        // Send the updated resume
         res.status(200).json({
             success: true,
             message: "Resume updated successfully",
@@ -155,7 +167,10 @@ const updateResume = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Update resume error:", error.message);
+        console.error(
+            "Update resume error:",
+            error.message
+        );
 
         res.status(500).json({
             success: false,
@@ -164,28 +179,29 @@ const updateResume = async (req, res) => {
     }
 };
 
+
 // ---------------------------------------------
 // DELETE RESUME
 // ---------------------------------------------
-
-// Delete a resume using its MongoDB ID
+// Deletes only a resume belonging to the
+// currently logged-in candidate.
 const deleteResume = async (req, res) => {
     try {
-        // Get the resume ID from the URL
         const resumeId = req.params.id;
 
-        // Find and delete the resume
-        const deletedResume = await Resume.findByIdAndDelete(resumeId);
+        const deletedResume =
+            await Resume.findOneAndDelete({
+                _id: resumeId,
+                candidate: req.user._id
+            });
 
-        // Resume doesn't exist
         if (!deletedResume) {
             return res.status(404).json({
                 success: false,
-                message: "Resume not found"
+                message: "Resume not found or access denied"
             });
         }
 
-        // Send success response
         res.status(200).json({
             success: true,
             message: "Resume deleted successfully",
@@ -193,7 +209,10 @@ const deleteResume = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Delete resume error:", error.message);
+        console.error(
+            "Delete resume error:",
+            error.message
+        );
 
         res.status(500).json({
             success: false,
@@ -201,6 +220,7 @@ const deleteResume = async (req, res) => {
         });
     }
 };
+
 
 module.exports = {
     createResume,

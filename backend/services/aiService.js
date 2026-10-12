@@ -3,8 +3,7 @@
 // ---------------------------------------------
 
 // FastAPI AI service URL
-const AI_SERVICE_URL = "http://localhost:8000";
-
+const AI_SERVICE_URL = "http://127.0.0.1:8000";
 // ---------------------------------------------
 // GET BASIC AI MATCH
 // ---------------------------------------------

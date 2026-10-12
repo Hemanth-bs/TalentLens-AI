@@ -1,65 +1,172 @@
-// Import Mongoose
 const mongoose = require("mongoose");
 
-// ---------------------------------------------
+
+// =====================================================
 // JOB DESCRIPTION SCHEMA
-// ---------------------------------------------
+// =====================================================
+// Stores all information related to a recruitment job.
+//
+// PUBLIC INFORMATION:
+// These fields can be shown to candidates.
+//
+// HR-ONLY INFORMATION:
+// These fields are used internally for AI evaluation
+// and are NOT exposed to candidates.
+//
+// SYSTEM INFORMATION:
+// Used internally for job lifecycle and RAG processing.
+// =====================================================
+
 
 const jobDescriptionSchema = new mongoose.Schema(
     {
-        // Job title
+
+        // =================================================
+        // PUBLIC JOB INFORMATION
+        // =================================================
+
         title: {
             type: String,
             required: true,
             trim: true
         },
 
-        // Company offering the position
         company: {
             type: String,
-            trim: true,
-            default: ""
+            required: true,
+            trim: true
         },
 
-        // Complete original job description
         description: {
             type: String,
             required: true,
             trim: true
         },
 
-        // Skills that are explicitly required
-        requiredSkills: {
-            type: [String],
-            default: []
-        },
-
-        // Skills that are preferred but not mandatory
-        preferredSkills: {
-            type: [String],
-            default: []
-        },
-
-        // Minimum years of experience
-        minimumExperience: {
-            type: Number,
-            default: 0
-        },
-
-        // Required/preferred educational qualification
-        education: {
-            type: String,
-            default: ""
-        },
-
-        // Main responsibilities mentioned in the JD
         responsibilities: {
             type: [String],
             default: []
         },
 
-        // Processing status
-        status: {
+        location: {
+            type: String,
+            default: "",
+            trim: true
+        },
+
+        workMode: {
+            type: String,
+            enum: [
+                "On-site",
+                "Hybrid",
+                "Remote"
+            ],
+            default: "On-site"
+        },
+
+        employmentType: {
+            type: String,
+            enum: [
+                "Full-time",
+                "Part-time",
+                "Internship",
+                "Contract"
+            ],
+            default: "Full-time"
+        },
+
+        salary: {
+            type: String,
+            default: "",
+            trim: true
+        },
+
+        contractPeriod: {
+            type: String,
+            default: "",
+            trim: true
+        },
+
+        minimumExperience: {
+            type: Number,
+            default: 0,
+            min: 0
+        },
+
+        education: {
+            type: String,
+            default: "",
+            trim: true
+        },
+
+        applicationDeadline: {
+            type: Date,
+            default: null
+        },
+
+
+        // =================================================
+        // HR-ONLY / AI EVALUATION INFORMATION
+        // =================================================
+        // Candidates must never receive these fields
+        // through candidate-facing APIs.
+        // =================================================
+
+        requiredSkills: {
+            type: [String],
+            default: []
+        },
+
+        preferredSkills: {
+            type: [String],
+            default: []
+        },
+
+        evaluationCriteria: {
+            type: [String],
+            default: []
+        },
+
+        internalNotes: {
+            type: String,
+            default: "",
+            trim: true
+        },
+
+
+        // =================================================
+        // JOB LIFECYCLE
+        // =================================================
+        // This represents whether the job is available
+        // for applications.
+        // =================================================
+
+        jobStatus: {
+            type: String,
+            enum: [
+                "Draft",
+                "Open",
+                "Closed"
+            ],
+            default: "Draft"
+        },
+
+
+        // =================================================
+        // RAG / PROCESSING STATUS
+        // =================================================
+        // This is separate from jobStatus.
+        //
+        // jobStatus:
+        //     Draft → Open → Closed
+        //
+        // processingStatus:
+        //     created → processed
+        //                    ↓
+        //                  failed
+        // =================================================
+
+        processingStatus: {
             type: String,
             enum: [
                 "created",
@@ -68,14 +175,38 @@ const jobDescriptionSchema = new mongoose.Schema(
             ],
             default: "created"
         }
+
     },
+
     {
         timestamps: true
     }
 );
 
-// Create and export the model
-module.exports = mongoose.model(
-    "JobDescription",
-    jobDescriptionSchema
-);
+
+// =====================================================
+// DATABASE INDEXES
+// =====================================================
+
+jobDescriptionSchema.index({
+    company: 1
+});
+
+jobDescriptionSchema.index({
+    jobStatus: 1
+});
+
+jobDescriptionSchema.index({
+    applicationDeadline: 1
+});
+
+
+// =====================================================
+// EXPORT MODEL
+// =====================================================
+
+module.exports =
+    mongoose.model(
+        "JobDescription",
+        jobDescriptionSchema
+    );

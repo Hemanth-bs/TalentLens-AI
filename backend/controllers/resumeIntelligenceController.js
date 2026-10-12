@@ -10,19 +10,24 @@ const {
 // ---------------------------------------------
 // ANALYZE RESUME
 // ---------------------------------------------
-
+// Analyzes only the resume belonging to the
+// currently authenticated candidate.
 const analyzeResumeController = async (req, res) => {
 
     try {
 
         // -----------------------------------------
-        // 1. FIND RESUME
+        // 1. FIND OWN RESUME
         // -----------------------------------------
-
+        // The resume ID comes from the URL.
+        // The candidate ID comes from the JWT.
+        //
+        // Both must match.
         const resume =
-            await Resume.findById(
-                req.params.id
-            );
+            await Resume.findOne({
+                _id: req.params.id,
+                candidate: req.user._id
+            });
 
 
         // -----------------------------------------
@@ -33,7 +38,8 @@ const analyzeResumeController = async (req, res) => {
 
             return res.status(404).json({
                 success: false,
-                message: "Resume not found"
+                message:
+                    "Resume not found or access denied"
             });
 
         }
@@ -88,16 +94,8 @@ const analyzeResumeController = async (req, res) => {
 
 
         // -----------------------------------------
-        // 6. USE VALID RESUME STATUS
+        // 6. UPDATE STATUS
         // -----------------------------------------
-        //
-        // Resume.js only allows:
-        // uploaded
-        // processed
-        // failed
-        //
-        // Therefore we use "processed".
-        //
 
         resume.status =
             "processed";

@@ -1,32 +1,43 @@
-// Use reliable public DNS servers for MongoDB SRV lookups
-const dns = require("dns");
+﻿const dns = require("dns");
 
 dns.setServers([
     "1.1.1.1",
     "8.8.8.8"
 ]);
 
-// Import Mongoose
-// Mongoose helps our Node.js application communicate with MongoDB
 const mongoose = require("mongoose");
 
-// Function to connect TalentLens to MongoDB Atlas
+const sleep = (ms) =>
+    new Promise((resolve) => setTimeout(resolve, ms));
+
 const connectDB = async () => {
-    try {
-        // Connect to MongoDB using the URI stored in .env
-        await mongoose.connect(process.env.MONGODB_URI);
+    const maxRetries = 5;
+    const retryDelay = 5000;
 
-        // Display a success message when the connection is established
-        console.log("MongoDB connected successfully!");
-    } catch (error) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            await mongoose.connect(process.env.MONGODB_URI, {
+                serverSelectionTimeoutMS: 10000
+            });
 
-        // Display the error if MongoDB connection fails
-        console.error("MongoDB connection failed:", error.message);
+            console.log("MongoDB connected successfully!");
+            return;
+        } catch (error) {
+            console.error(
+                `MongoDB connection attempt ${attempt}/${maxRetries} failed:`,
+                error.message
+            );
 
-        // Stop the application if the database connection fails
-        process.exit(1);
+            if (attempt < maxRetries) {
+                console.log("Retrying MongoDB connection in 5 seconds...");
+                await sleep(retryDelay);
+            } else {
+                throw new Error(
+                    "MongoDB connection failed after 5 attempts."
+                );
+            }
+        }
     }
 };
 
-// Export the function so server.js can use it
 module.exports = connectDB;

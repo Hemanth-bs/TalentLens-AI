@@ -2,6 +2,8 @@
 # TALENTLENS AI - SKILL MATCHING SERVICE
 # ---------------------------------------------
 
+import re
+
 from services.textProcessor import clean_text
 
 
@@ -62,7 +64,6 @@ SKILL_LIBRARY = {
 
     # APIs / Architecture
     "rest api",
-    "rest apis",
     "graphql",
     "microservices",
 
@@ -89,7 +90,6 @@ SKILL_LIBRARY = {
 # ---------------------------------------------
 
 TRANSFERABLE_SKILLS = {
-
     "flask": {
         "fastapi",
         "django"
@@ -148,20 +148,42 @@ TRANSFERABLE_SKILLS = {
 
 
 # ---------------------------------------------
+# NORMALIZE SKILL VARIATIONS
+# ---------------------------------------------
+
+def normalize_skill_text(text: str) -> str:
+    """
+    Normalize known wording variations before skill extraction.
+
+    REST API and REST APIs are treated as the same canonical
+    skill. Technologies such as Flask and FastAPI remain distinct.
+    """
+
+    cleaned_text = clean_text(text)
+
+    cleaned_text = re.sub(
+        r"\brest\s+apis\b",
+        "rest api",
+        cleaned_text
+    )
+
+    return cleaned_text
+
+
+# ---------------------------------------------
 # EXTRACT SKILLS FROM TEXT
 # ---------------------------------------------
 
 def extract_skills(text: str):
-
     if not text or not text.strip():
         return []
 
-    cleaned_text = clean_text(text)
+    cleaned_text = normalize_skill_text(text)
 
     found_skills = []
 
-    # Check longer skills first
-    # so multi-word skills are handled properly.
+    # Check longer skills first so multi-word skills are handled
+    # before shorter skills.
     sorted_skills = sorted(
         SKILL_LIBRARY,
         key=len,
@@ -169,33 +191,15 @@ def extract_skills(text: str):
     )
 
     for skill in sorted_skills:
+        # Escape skill names so characters such as +, #, and .
+        # are matched literally instead of being treated as regex syntax.
+        pattern = rf"(?<![a-z0-9]){re.escape(skill)}(?![a-z0-9])"
 
-        # Create a regular expression that matches
-        # the complete skill instead of a substring.
-        #
-        # Example:
-        # "c" should match "C"
-        # but NOT "candidate"
-        #
-        # "sql" should match "SQL"
-        # but NOT "MySQL"
+        if re.search(pattern, cleaned_text):
+            found_skills.append(skill)
 
-        pattern = rf"(?<![a-z0-9]){skill}(?![a-z0-9])"
+    return sorted(set(found_skills))
 
-        import re
-
-        if re.search(
-            pattern,
-            cleaned_text
-        ):
-
-            found_skills.append(
-                skill
-            )
-
-    return sorted(
-        set(found_skills)
-    )
 
 # ---------------------------------------------
 # CALCULATE SKILL MATCH
@@ -205,48 +209,35 @@ def calculate_skill_match(
     resume_text: str,
     job_description: str
 ):
-
     # -----------------------------------------
     # EXTRACT CANDIDATE SKILLS
     # -----------------------------------------
 
     resume_skills = set(
-        extract_skills(
-            resume_text
-        )
+        extract_skills(resume_text)
     )
-
 
     # -----------------------------------------
     # EXTRACT JOB REQUIREMENTS
     # -----------------------------------------
 
     job_skills = set(
-        extract_skills(
-            job_description
-        )
+        extract_skills(job_description)
     )
-
 
     # -----------------------------------------
     # DIRECT MATCHES
     # -----------------------------------------
 
-    matched_skills = (
-        resume_skills.intersection(
-            job_skills
-        )
+    matched_skills = resume_skills.intersection(
+        job_skills
     )
-
 
     # -----------------------------------------
     # MISSING SKILLS
     # -----------------------------------------
 
-    missing_skills = (
-        job_skills - resume_skills
-    )
-
+    missing_skills = job_skills - resume_skills
 
     # -----------------------------------------
     # TRANSFERABLE SKILLS
@@ -254,71 +245,43 @@ def calculate_skill_match(
 
     transferable_skills = []
 
-    for candidate_skill in resume_skills:
-
-        related_skills = (
-            TRANSFERABLE_SKILLS.get(
-                candidate_skill,
-                set()
-            )
+    for candidate_skill in sorted(resume_skills):
+        related_skills = TRANSFERABLE_SKILLS.get(
+            candidate_skill,
+            set()
         )
 
-        for required_skill in related_skills:
-
+        for required_skill in sorted(related_skills):
             if required_skill in job_skills:
-
-                transferable_skills.append(
-                    {
-                        "candidate_skill": candidate_skill,
-                        "required_skill": required_skill
-                    }
-                )
-
+                transferable_skills.append({
+                    "candidate_skill": candidate_skill,
+                    "required_skill": required_skill
+                })
 
     # -----------------------------------------
     # CALCULATE SKILL SCORE
     # -----------------------------------------
 
-    if len(job_skills) == 0:
-
+    if not job_skills:
         skill_score = 0
-
     else:
-
         skill_score = round(
             (
                 len(matched_skills)
-                /
-                len(job_skills)
+                / len(job_skills)
             ) * 100,
             2
         )
-
 
     # -----------------------------------------
     # RETURN RESULT
     # -----------------------------------------
 
     return {
-
         "skill_score": skill_score,
-
-        "candidate_skills": sorted(
-            resume_skills
-        ),
-
-        "required_skills": sorted(
-            job_skills
-        ),
-
-        "matched_skills": sorted(
-            matched_skills
-        ),
-
-        "missing_skills": sorted(
-            missing_skills
-        ),
-
-        "transferable_skills":
-            transferable_skills
+        "candidate_skills": sorted(resume_skills),
+        "required_skills": sorted(job_skills),
+        "matched_skills": sorted(matched_skills),
+        "missing_skills": sorted(missing_skills),
+        "transferable_skills": transferable_skills
     }

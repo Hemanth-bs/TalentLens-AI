@@ -1,45 +1,149 @@
-// Import Express
 const express = require("express");
 
-// Create router
-const router = express.Router();
+const router =
+    express.Router();
+
+
+// =====================================================
+// MIDDLEWARE
+// =====================================================
 
 const {
-    analyzeJobDescriptionController
-} = require("../controllers/jobIntelligenceController");
+    protect,
+    requireRole
+} = require("../middleware/authMiddleware");
 
-// Import controller functions
+
+// =====================================================
+// CONTROLLERS
+// =====================================================
+
 const {
+
     createJobDescription,
+
     getJobDescriptions,
-    getJobDescriptionById
+
+    getCandidateJobs,
+
+    getJobDescriptionById,
+
+    updateJobDescription,
+
+    updateJobStatus,
+
+    deleteJobDescription
+
 } = require("../controllers/jobDescriptionController");
 
 
-// ---------------------------------------------
-// JOB DESCRIPTION ROUTES
-// ---------------------------------------------
+// =====================================================
+// CREATE JOB
+// =====================================================
+// HR only.
+// =====================================================
 
-// Create a new job description
-// POST /api/jobs
-router.post("/", createJobDescription);
-
-
-// Get all job descriptions
-// GET /api/jobs
-router.get("/", getJobDescriptions);
-
-// POST /api/jobs/:id/analyze
-// Analyze a stored job description
 router.post(
-    "/:id/analyze",
-    analyzeJobDescriptionController
+    "/",
+    protect,
+    requireRole("hr"),
+    createJobDescription
 );
 
 
-// Get a specific job description
-// GET /api/jobs/:id
-router.get("/:id", getJobDescriptionById);
+// =====================================================
+// GET ALL JOBS
+// =====================================================
+// HR:
+//     Own company's complete jobs.
+//
+// Candidate:
+//     Open jobs with safe fields only.
+// =====================================================
 
-// Export router
+router.get(
+    "/",
+    protect,
+    getJobDescriptions
+);
+
+
+// =====================================================
+// GET CANDIDATE JOBS
+// =====================================================
+// Candidate only.
+// Only Open jobs.
+// Hidden evaluation fields excluded.
+// =====================================================
+
+router.get(
+    "/candidate",
+    protect,
+    requireRole("candidate"),
+    getCandidateJobs
+);
+
+
+// =====================================================
+// UPDATE JOB STATUS
+// =====================================================
+// Draft / Open / Closed
+//
+// IMPORTANT:
+// This must appear before /:id routes.
+// =====================================================
+
+router.patch(
+    "/:id/status",
+    protect,
+    requireRole("hr"),
+    updateJobStatus
+);
+
+
+// =====================================================
+// UPDATE JOB
+// =====================================================
+
+router.put(
+    "/:id",
+    protect,
+    requireRole("hr"),
+    updateJobDescription
+);
+
+
+// =====================================================
+// DELETE JOB
+// =====================================================
+
+router.delete(
+    "/:id",
+    protect,
+    requireRole("hr"),
+    deleteJobDescription
+);
+
+
+// =====================================================
+// GET JOB BY ID
+// =====================================================
+// HR:
+//     Complete job, but only own company.
+//
+// Candidate:
+//     Safe information, only if Open.
+// =====================================================
+
+router.get(
+    "/:id",
+    protect,
+    getJobDescriptionById
+);
+
+
+// =====================================================
+// EXPORT ROUTER
+// =====================================================
+
 module.exports = router;

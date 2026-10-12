@@ -1,32 +1,51 @@
 // ---------------------------------------------
-// TALENTLENS AI - MATCHING CONTROLLER
+// MATCHING CONTROLLER
 // ---------------------------------------------
 
-// Import models
+
+// ---------------------------------------------
+// IMPORT MODELS
+// ---------------------------------------------
+
 const Resume = require("../models/Resume");
+
 const JobDescription = require("../models/JobDescription");
 
-// Import traditional matching service
+const Application = require("../models/Application");
+
+const Match = require("../models/Match");
+
+
+// ---------------------------------------------
+// IMPORT MATCHING SERVICES
+// ---------------------------------------------
+
 const {
     matchCandidateToJob
 } = require("../services/matchingService");
 
-// Import complete FastAPI AI analysis service
+
 const {
     getAIAnalysis
 } = require("../services/aiService");
 
 
 // ---------------------------------------------
-// MATCH RESUME WITH JOB
-// --------------------------------------------
+// MATCH RESUME TO JOB
+// ---------------------------------------------
+//
+// Calculates traditional + AI matching,
+// persists the result and connects the Match
+// to the candidate's actual Application.
+//
+// ---------------------------------------------
 
 const matchResumeToJob = async (req, res) => {
 
     try {
 
         // -----------------------------------------
-        // 1. GET RESUME AND JOB IDs
+        // 1. GET REQUEST DATA
         // -----------------------------------------
 
         const {
@@ -36,14 +55,18 @@ const matchResumeToJob = async (req, res) => {
 
 
         // -----------------------------------------
-        // 2. VALIDATE REQUEST
+        // 2. VALIDATE INPUT
         // -----------------------------------------
 
         if (!resumeId || !jobId) {
 
             return res.status(400).json({
+
                 success: false,
-                message: "resumeId and jobId are required"
+
+                message:
+                    "resumeId and jobId are required"
+
             });
 
         }
@@ -53,47 +76,134 @@ const matchResumeToJob = async (req, res) => {
         // 3. FIND RESUME
         // -----------------------------------------
 
-        const resume = await Resume.findById(resumeId);
+        const resume =
+            await Resume.findById(resumeId);
+
 
         if (!resume) {
 
             return res.status(404).json({
+
                 success: false,
-                message: "Resume not found"
+
+                message:
+                    "Resume not found"
+
             });
 
         }
 
 
         // -----------------------------------------
-        // 4. FIND JOB DESCRIPTION
+        // 4. FIND JOB
         // -----------------------------------------
 
-        const job = await JobDescription.findById(jobId);
+        const job =
+            await JobDescription.findById(jobId);
+
 
         if (!job) {
 
             return res.status(404).json({
+
                 success: false,
-                message: "Job description not found"
+
+                message:
+                    "Job not found"
+
             });
 
         }
 
 
         // -----------------------------------------
-        // 5. TRADITIONAL BACKEND MATCHING
+        // 5. VERIFY HR COMPANY ACCESS
         // -----------------------------------------
 
-        // Existing Node.js matching logic.
-        //
-        // This checks structured information such as:
-        // - required skills
-        // - preferred skills
-        // - experience
-        // - education
+        if (
+            req.user.company &&
+            job.company !== req.user.company
+        ) {
 
-        const matchResult =
+            return res.status(403).json({
+
+                success: false,
+
+                message:
+                    "You are not authorized to evaluate candidates for this job"
+
+            });
+
+        }
+
+
+        // -----------------------------------------
+        // 6. FIND APPLICATION
+        // -----------------------------------------
+        //
+        // A match should only be generated for an
+        // actual application.
+        //
+        // The application must connect the same:
+        // - candidate
+        // - job
+        // - resume
+        //
+        // -----------------------------------------
+
+        const application =
+            await Application.findOne({
+
+                job:
+                    job._id,
+
+                resume:
+                    resume._id
+
+            });
+
+
+        if (!application) {
+
+            return res.status(404).json({
+
+                success: false,
+
+                message:
+                    "No application found for this resume and job"
+
+            });
+
+        }
+
+
+        // -----------------------------------------
+        // 7. VERIFY APPLICATION RESUME
+        // -----------------------------------------
+
+        if (
+            application.resume &&
+            application.resume.toString() !==
+            resume._id.toString()
+        ) {
+
+            return res.status(403).json({
+
+                success: false,
+
+                message:
+                    "Application and resume do not match"
+
+            });
+
+        }
+
+
+        // -----------------------------------------
+        // 8. TRADITIONAL MATCHING
+        // -----------------------------------------
+
+        const traditionalMatch =
             matchCandidateToJob(
                 resume,
                 job
@@ -101,28 +211,23 @@ const matchResumeToJob = async (req, res) => {
 
 
         // -----------------------------------------
-        // 6. COMPLETE AI ANALYSIS
+        // 9. AI + RAG ANALYSIS
         // -----------------------------------------
 
-        // Send the resume and job description
-        // to the FastAPI AI service.
-        //
-        // FastAPI performs:
-        // - keyword matching
-        // - semantic matching
-        // - skill matching
-        // - RAG retrieval
-        // - LLM analysis
+        const aiResult =
+            await getAIAnalysis(
 
-        const aiResult = await getAIAnalysis(
-            resume.resumeText,
-            job.description,
-            job._id.toString()
-        );
+                resume.resumeText,
+
+                job.description,
+
+                job._id.toString()
+
+            );
 
 
         // -----------------------------------------
-        // 7. VALIDATE AI RESPONSE
+        // 10. VALIDATE AI RESPONSE
         // -----------------------------------------
 
         if (
@@ -131,51 +236,199 @@ const matchResumeToJob = async (req, res) => {
             !aiResult.data.match
         ) {
 
-            throw new Error(
-                "Invalid response received from AI service"
-            );
+            return res.status(500).json({
+
+                success: false,
+
+                message:
+                    "AI matching service returned an invalid response"
+
+            });
 
         }
 
 
         // -----------------------------------------
-        // 8. EXTRACT AI RESULTS
+        // 11. EXTRACT AI RESULTS
         // -----------------------------------------
 
         const aiMatch =
             aiResult.data.match;
 
+
         const aiAnalysis =
             aiResult.data.analysis;
+
+
+        // FastAPI returns RAG evidence as
+        // data.rag_chunks.
 
         const ragChunks =
             aiResult.data.rag_chunks || [];
 
 
-        // AI's combined score from FastAPI
+        // -----------------------------------------
+        // 12. AI SCORE
+        // -----------------------------------------
+
         const aiMatchScore =
-            Number(aiMatch.final_score);
+            Number(
+                aiMatch.final_score || 0
+            );
 
 
         // -----------------------------------------
-        // 9. COMBINE TRADITIONAL + AI SCORES
+        // 13. FINAL SCORE
         // -----------------------------------------
-
-        // Traditional backend matching = 40%
-        // Complete AI matching = 60%
+        //
+        // Traditional matching = 40%
+        // AI matching = 60%
+        //
+        // -----------------------------------------
 
         const finalScore =
-            Math.round(
+            Number(
                 (
-                    Number(matchResult.overallScore) * 0.40
-                    +
-                    aiMatchScore * 0.60
-                ) * 100
-            ) / 100;
+                    (
+                        traditionalMatch.overallScore *
+                        0.40
+                    ) +
+                    (
+                        aiMatchScore *
+                        0.60
+                    )
+                ).toFixed(2)
+            );
 
 
         // -----------------------------------------
-        // 10. STORE FINAL SCORE
+        // 14. PREPARE MATCH DATA
+        // -----------------------------------------
+
+       const matchData = {
+
+    applicationId:
+        application._id,
+
+    resumeId:
+        resume._id,
+
+    jobId:
+        job._id,
+
+    traditionalScore:
+        traditionalMatch.overallScore,
+
+    requiredSkillsScore:
+        traditionalMatch
+            .requiredSkills
+            .score,
+
+    preferredSkillsScore:
+        traditionalMatch
+            .preferredSkills
+            .score,
+
+    experienceScore:
+        traditionalMatch
+            .experience
+            .score,
+
+    educationScore:
+        traditionalMatch
+            .education
+            .score,
+
+    aiScore:
+        aiMatchScore,
+
+    keywordScore:
+        Number(
+            aiMatch.keyword_score || 0
+        ),
+
+    semanticScore:
+        Number(
+            aiMatch.semantic_score || 0
+        ),
+
+    finalScore:
+        finalScore,
+
+    matchedRequiredSkills:
+        traditionalMatch
+            .requiredSkills
+            .matched,
+
+    missingRequiredSkills:
+        traditionalMatch
+            .requiredSkills
+            .missing,
+
+    aiMatchedWords:
+        aiMatch.matched_words || [],
+
+    // -----------------------------------------
+    // PERSIST AI ANALYSIS
+    // -----------------------------------------
+
+    aiAnalysis:
+        aiAnalysis || null,
+
+    // -----------------------------------------
+    // PERSIST RAG EVIDENCE
+    // -----------------------------------------
+
+    ragEvidence:
+        ragChunks || [],
+
+    // A newly calculated match is always current.
+    matchStatus:
+        "current"
+};
+
+
+        // -----------------------------------------
+        // 15. SAVE / UPDATE MATCH
+        // -----------------------------------------
+        //
+        // Existing resume/job Match records are
+        // updated with the application reference.
+        //
+        // A fresh calculation resets stale → current.
+        //
+        // -----------------------------------------
+
+        const savedMatch =
+            await Match.findOneAndUpdate(
+
+                {
+                    resumeId:
+                        resume._id,
+
+                    jobId:
+                        job._id
+
+                },
+
+                matchData,
+
+                {
+                    new: true,
+
+                    upsert: true,
+
+                    runValidators: true,
+
+                    setDefaultsOnInsert: true
+
+                }
+
+            );
+
+
+        // -----------------------------------------
+        // 16. UPDATE RESUME MATCH SCORE
         // -----------------------------------------
 
         resume.matchScore =
@@ -188,7 +441,7 @@ const matchResumeToJob = async (req, res) => {
 
 
         // -----------------------------------------
-        // 11. RETURN COMPLETE RESULT
+        // 17. RETURN RESULT
         // -----------------------------------------
 
         return res.status(200).json({
@@ -200,9 +453,11 @@ const matchResumeToJob = async (req, res) => {
 
             data: {
 
-                // ---------------------------------
-                // BASIC INFORMATION
-                // ---------------------------------
+                matchId:
+                    savedMatch._id,
+
+                applicationId:
+                    application._id,
 
                 resumeId:
                     resume._id,
@@ -219,122 +474,24 @@ const matchResumeToJob = async (req, res) => {
                 company:
                     job.company,
 
-
-                // ---------------------------------
-                // FINAL SCORE
-                // ---------------------------------
-
                 matchScore:
                     finalScore,
 
+                traditionalMatch,
 
-                // ---------------------------------
-                // TRADITIONAL BACKEND MATCH
-                // ---------------------------------
+                aiMatch,
 
-                traditionalMatch: {
-
-                    score:
-                        matchResult.overallScore,
-
-                    requiredSkills:
-                        matchResult.requiredSkills,
-
-                    preferredSkills:
-                        matchResult.preferredSkills,
-
-                    experience:
-                        matchResult.experience,
-
-                    education:
-                        matchResult.education
-
-                },
-
-
-                // ---------------------------------
-                // AI MATCHING
-                // ---------------------------------
-
-                aiMatch: {
-
-                    finalScore:
-                        aiMatch.final_score,
-
-                    skillScore:
-                        aiMatch.skill_score,
-
-                    semanticScore:
-                        aiMatch.semantic_score,
-
-                    keywordScore:
-                        aiMatch.keyword_score,
-
-                    matchedWords:
-                        aiMatch.matched_words,
-
-                    candidateSkills:
-                        aiMatch.candidate_skills,
-
-                    requiredSkills:
-                        aiMatch.required_skills,
-
-                    matchedSkills:
-                        aiMatch.matched_skills,
-
-                    missingSkills:
-                        aiMatch.missing_skills,
-
-                    transferableSkills:
-                        aiMatch.transferable_skills
-
-                },
-
-
-                // ---------------------------------
-                // LLM ANALYSIS
-                // ---------------------------------
-
-                analysis: {
-
-                    matchedSkills:
-                        aiAnalysis.matched_skills,
-
-                    missingSkills:
-                        aiAnalysis.missing_skills,
-
-                    transferableSkills:
-                        aiAnalysis.transferable_skills,
-
-                    relevantExperience:
-                        aiAnalysis.relevant_experience,
-
-                    strengths:
-                        aiAnalysis.strengths,
-
-                    areasForImprovement:
-                        aiAnalysis.areas_for_improvement,
-
-                    hrRecommendation:
-                        aiAnalysis.hr_recommendation,
-
-                    candidateFeedback:
-                        aiAnalysis.candidate_feedback
-
-                },
-
-
-                // ---------------------------------
-                // RAG EVIDENCE
-                // ---------------------------------
+                analysis:
+                    aiAnalysis,
 
                 ragEvidence:
                     ragChunks,
 
+                persisted:
+                    true,
 
-                // ---------------------------------
-                // STATUS
-                // ---------------------------------
+                applicationLinked:
+                    true,
 
                 status:
                     "matched"
@@ -343,6 +500,7 @@ const matchResumeToJob = async (req, res) => {
 
         });
 
+
     } catch (error) {
 
         // -----------------------------------------
@@ -350,9 +508,67 @@ const matchResumeToJob = async (req, res) => {
         // -----------------------------------------
 
         console.error(
-            "AI matching error:",
+            "Matching error:",
             error
         );
+
+
+        // -----------------------------------------
+        // AI SERVICE UNAVAILABLE
+        // -----------------------------------------
+        //
+        // When FastAPI is not running, Node's fetch
+        // reports ECONNREFUSED against port 8000.
+        //
+        // Return a specific 503 response so the
+        // frontend can show a useful message.
+        // -----------------------------------------
+
+        const aiServiceUnavailable =
+            error?.code === "ECONNREFUSED" ||
+            error?.cause?.code === "ECONNREFUSED";
+
+
+        if (aiServiceUnavailable) {
+
+            return res.status(503).json({
+
+                success: false,
+
+                message:
+                    "AI service is currently unavailable. Please start the AI service and try again."
+
+            });
+
+        }
+
+
+        // -----------------------------------------
+        // AI SERVICE TIMEOUT
+        // -----------------------------------------
+
+        const aiServiceTimeout =
+            error?.code === "ETIMEDOUT" ||
+            error?.cause?.code === "ETIMEDOUT";
+
+
+        if (aiServiceTimeout) {
+
+            return res.status(503).json({
+
+                success: false,
+
+                message:
+                    "AI service is taking too long to respond. Please try again."
+
+            });
+
+        }
+
+
+        // -----------------------------------------
+        // GENERIC MATCHING ERROR
+        // -----------------------------------------
 
         return res.status(500).json({
 
@@ -367,6 +583,7 @@ const matchResumeToJob = async (req, res) => {
         });
 
     }
+
 };
 
 

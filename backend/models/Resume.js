@@ -8,155 +8,104 @@ const mongoose = require("mongoose");
 // ---------------------------------------------
 
 const resumeSchema = new mongoose.Schema(
-
     {
+        // -----------------------------------------
+        // CANDIDATE REFERENCE
+        // -----------------------------------------
+        // Links this resume to the authenticated
+        // candidate who uploaded it.
+        candidate: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            required: true
+        },
 
         // -----------------------------------------
         // CANDIDATE NAME
         // -----------------------------------------
-
         candidateName: {
-
             type: String,
-
             required: true,
-
             trim: true
-
         },
-
 
         // -----------------------------------------
         // CANDIDATE EMAIL
         // -----------------------------------------
-
         email: {
-
             type: String,
-
             required: true,
-
             trim: true
-
         },
-
 
         // -----------------------------------------
         // EXTRACTED SKILLS
         // -----------------------------------------
-
         skills: {
-
             type: [String],
-
             default: []
-
         },
-
 
         // -----------------------------------------
         // EXPERIENCE
         // -----------------------------------------
-
         experience: {
-
             type: Number,
-
             default: 0
-
         },
-
 
         // -----------------------------------------
         // EDUCATION
         // -----------------------------------------
-
         education: {
-
             type: String,
-
             default: ""
-
         },
-
 
         // -----------------------------------------
         // ORIGINAL RESUME TEXT
         // -----------------------------------------
-
         resumeText: {
-
             type: String,
-
             default: ""
-
         },
-
 
         // -----------------------------------------
         // JOB DESCRIPTION
         // -----------------------------------------
-
         jobDescription: {
-
             type: String,
-
             default: ""
-
         },
-
 
         // -----------------------------------------
         // AI MATCHING SCORE
         // -----------------------------------------
-
         matchScore: {
-
             type: Number,
-
             default: 0
-
         },
-
 
         // -----------------------------------------
         // CURRENT PROCESSING STATUS
         // -----------------------------------------
-        //
-        // Keep ONE consistent status system.
-        //
-        // uploaded  = resume uploaded
-        // processed = resume processed/analyzed/matched
-        // failed    = processing failed
-        //
-
         status: {
-
             type: String,
-
             enum: [
                 "uploaded",
                 "processed",
                 "failed"
             ],
-
             default: "uploaded"
-
         }
-
     },
-
 
     // ---------------------------------------------
     // AUTOMATIC TIMESTAMPS
     // ---------------------------------------------
-
     {
-
         timestamps: true
-
     }
-
 );
 
 
@@ -164,11 +113,10 @@ const resumeSchema = new mongoose.Schema(
 // CREATE MODEL
 // ---------------------------------------------
 
-const Resume =
-    mongoose.model(
-        "Resume",
-        resumeSchema
-    );
+const Resume = mongoose.model(
+    "Resume",
+    resumeSchema
+);
 
 
 // ---------------------------------------------

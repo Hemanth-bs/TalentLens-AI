@@ -1,14 +1,39 @@
+// ---------------------------------------------
+// TALENTLENS AI - RESUME UPLOAD ROUTES
+// ---------------------------------------------
+
 // Import Express
 const express = require("express");
 
 // Create an Express router
 const router = express.Router();
 
-// Import upload middleware
-const upload = require("../middleware/uploadMiddleware");
 
-// Import upload controller
-const { uploadResume } = require("../controllers/resumeUploadController");
+// ---------------------------------------------
+// IMPORT AUTHENTICATION MIDDLEWARE
+// ---------------------------------------------
+
+const {
+    protect,
+    requireRole
+} = require("../middleware/authMiddleware");
+
+
+// ---------------------------------------------
+// IMPORT UPLOAD MIDDLEWARE
+// ---------------------------------------------
+
+const upload =
+    require("../middleware/uploadMiddleware");
+
+
+// ---------------------------------------------
+// IMPORT UPLOAD CONTROLLER
+// ---------------------------------------------
+
+const {
+    uploadResume
+} = require("../controllers/resumeUploadController");
 
 
 // ---------------------------------------------
@@ -16,15 +41,36 @@ const { uploadResume } = require("../controllers/resumeUploadController");
 // ---------------------------------------------
 
 // POST /api/resumes/upload
-// Receives a single resume file
 //
-// "resume" is the field name expected by Multer
+// Only logged-in candidates can upload resumes.
+//
+// Flow:
+//
+// JWT authentication
+//       ↓
+// Candidate role check
+//       ↓
+// Multer file upload
+//       ↓
+// Resume processing
+
 router.post(
+
     "/upload",
+
+    protect,
+
+    requireRole("candidate"),
+
     upload.single("resume"),
+
     uploadResume
+
 );
 
 
-// Export the router
+// ---------------------------------------------
+// EXPORT ROUTER
+// ---------------------------------------------
+
 module.exports = router;

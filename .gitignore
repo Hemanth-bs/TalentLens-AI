@@ -1,31 +1,96 @@
-# Environment / secrets
+
+# ==============================
+# Environment Variables / Secrets
+# ==============================
 .env
 .env.*
 !.env.example
 *.env
 *.env.txt
 
+# API keys and local secret/config files
+ai-service/openrouter.txt
+
+# Private keys and certificates
+*.pem
+*.key
+*.p12
+*.pfx
+
+# ==============================
 # Python
+# ==============================
 __pycache__/
 *.py[cod]
 *.pyo
+*.pyd
 .venv/
 venv/
+env/
+ENV/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 
-# Node
+# ==============================
+# Node.js
+# ==============================
 node_modules/
 npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+.npm/
 
-# RAG / local vector database
+# ==============================
+# RAG / Vector Databases
+# ==============================
 chroma_db/
+**/chroma_db/
 
-# Generated archives
+# ==============================
+# Generated Archives
+# ==============================
 *.zip
+*.7z
+*.rar
 
-# Test resumes / uploaded files
+# ==============================
+# Local Backups
+# ==============================
+*.backup
+*.backup-*
+*.bak
+*.pre-fix
+*_backup.*
+*.dashboard-backup
+
+# ==============================
+# Local Test Data
+# ==============================
+rag-test.json
+ai-service/rag-test.json
+backend/test-resume.txt
+backend/test_resume.pdf
 test-resumes/
+uploads/
+temp/
+tmp/
 
-# OS / editor
+# ==============================
+# Build Outputs
+# ==============================
+dist/
+build/
+coverage/
+
+# ==============================
+# OS / Editor
+# ==============================
 .DS_Store
 Thumbs.db
 .vscode/
+.idea/
+*.swp
+*.swo

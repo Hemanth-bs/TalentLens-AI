@@ -1,3 +1,7 @@
+// ---------------------------------------------
+// TALENTLENS AI - RESUME ROUTES
+// ---------------------------------------------
+
 // Import Express
 const express = require("express");
 
@@ -6,18 +10,27 @@ const router = express.Router();
 
 
 // ---------------------------------------------
-// IMPORT MIDDLEWARE
+// IMPORT AUTHENTICATION MIDDLEWARE
 // ---------------------------------------------
 
-// Resume upload middleware
-const upload = require("../middleware/uploadMiddleware");
+const {
+    protect,
+    requireRole
+} = require("../middleware/authMiddleware");
 
 
 // ---------------------------------------------
-// IMPORT CONTROLLERS
+// IMPORT UPLOAD MIDDLEWARE
 // ---------------------------------------------
 
-// Resume CRUD controllers
+const upload =
+    require("../middleware/uploadMiddleware");
+
+
+// ---------------------------------------------
+// IMPORT RESUME CRUD CONTROLLERS
+// ---------------------------------------------
+
 const {
     createResume,
     getResumes,
@@ -26,12 +39,20 @@ const {
     deleteResume
 } = require("../controllers/resumeController");
 
-// Resume upload controller
+
+// ---------------------------------------------
+// IMPORT RESUME UPLOAD CONTROLLER
+// ---------------------------------------------
+
 const {
     uploadResume
 } = require("../controllers/resumeUploadController");
 
-// Resume intelligence controller
+
+// ---------------------------------------------
+// IMPORT RESUME INTELLIGENCE CONTROLLER
+// ---------------------------------------------
+
 const {
     analyzeResumeController
 } = require("../controllers/resumeIntelligenceController");
@@ -43,14 +64,33 @@ const {
 
 // POST /api/resumes/upload
 //
-// Upload a PDF or DOCX resume.
+// Only authenticated candidates can upload
+// their resumes.
 //
-// "resume" is the expected multipart/form-data
-// field name.
+// Flow:
+//
+// JWT
+//   ↓
+// Candidate role
+//   ↓
+// Multer file upload
+//   ↓
+// Resume processing
+//   ↓
+// RAG indexing
+
 router.post(
+
     "/upload",
+
+    protect,
+
+    requireRole("candidate"),
+
     upload.single("resume"),
+
     uploadResume
+
 );
 
 
@@ -60,41 +100,77 @@ router.post(
 
 // POST /api/resumes
 // Create a resume manually
+
 router.post(
+
     "/",
+
+    protect,
+
+    requireRole("candidate"),
+
     createResume
+
 );
 
 
 // GET /api/resumes
-// Get all resumes
+// Get resumes
+
 router.get(
+
     "/",
+
+    protect,
+
     getResumes
+
 );
 
 
 // GET /api/resumes/:id
 // Get one resume
+
 router.get(
+
     "/:id",
+
+    protect,
+
     getResumeById
+
 );
 
 
 // PUT /api/resumes/:id
 // Update one resume
+
 router.put(
+
     "/:id",
+
+    protect,
+
+    requireRole("candidate"),
+
     updateResume
+
 );
 
 
 // DELETE /api/resumes/:id
 // Delete one resume
+
 router.delete(
+
     "/:id",
+
+    protect,
+
+    requireRole("candidate"),
+
     deleteResume
+
 );
 
 
@@ -104,11 +180,18 @@ router.delete(
 
 // POST /api/resumes/:id/analyze
 //
-// Analyze the extracted resume text and generate
-// structured candidate information.
+// Analyze the extracted resume text.
+
 router.post(
+
     "/:id/analyze",
+
+    protect,
+
+    requireRole("candidate"),
+
     analyzeResumeController
+
 );
 
 
