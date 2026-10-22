@@ -1,19 +1,51 @@
 # ---------------------------------------------
 # TALENTLENS AI - LLM SERVICE
 # ---------------------------------------------
+#
+# Uses a hosted, OpenAI-compatible chat completions API
+# (Groq by default) instead of a local Ollama server, so it
+# works on cloud hosts such as Hugging Face Spaces or Render.
+#
+# Required environment variable:
+#   LLM_API_KEY      -> your provider API key
+#
+# Optional environment variables (defaults shown):
+#   LLM_BASE_URL     -> https://api.groq.com/openai/v1
+#   LLM_MODEL        -> llama-3.1-8b-instant
+#   LLM_TIMEOUT      -> 60   (seconds)
+#
+# To switch provider, only change the env vars. Examples:
+#   OpenAI: LLM_BASE_URL=https://api.openai.com/v1   LLM_MODEL=gpt-4o-mini
+#   Groq:   LLM_BASE_URL=https://api.groq.com/openai/v1
+#
+# Check your provider's docs for current model names.
 
-import json
-import urllib.request
-import urllib.error
+import os
+
+import requests
+from dotenv import load_dotenv
+
+# Load variables from a local .env file (ignored if not present)
+load_dotenv()
 
 
 # ---------------------------------------------
-# OLLAMA CONFIGURATION
+# LLM CONFIGURATION
 # ---------------------------------------------
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
+LLM_BASE_URL = os.getenv(
+    "LLM_BASE_URL",
+    "https://api.groq.com/openai/v1"
+).rstrip("/")
 
-MODEL_NAME = "llama3.2:3b"
+MODEL_NAME = os.getenv(
+    "LLM_MODEL",
+    "llama-3.1-8b-instant"
+)
+
+REQUEST_TIMEOUT = int(
+    os.getenv("LLM_TIMEOUT", "60")
+)
 
 
 # ---------------------------------------------
@@ -28,54 +60,70 @@ def generate_llm_response(prompt: str) -> str:
             "Prompt cannot be empty."
         )
 
-    # Data that will be sent to Ollama
+    # Read the key at call time so the service can start
+    # even if the key is missing (e.g. when running tests)
+    api_key = os.getenv("LLM_API_KEY")
+
+    if not api_key:
+        raise RuntimeError(
+            "LLM_API_KEY environment variable is not set."
+        )
+
+    # Data that will be sent to the LLM provider
     request_data = {
         "model": MODEL_NAME,
-        "prompt": prompt,
-        "stream": False
+        "messages": [
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        "temperature": 0.2
     }
-
-    # Convert Python dictionary into JSON
-    json_data = json.dumps(
-        request_data
-    ).encode("utf-8")
-
-    # Create HTTP request
-    request = urllib.request.Request(
-        OLLAMA_URL,
-        data=json_data,
-        headers={
-            "Content-Type": "application/json"
-        },
-        method="POST"
-    )
 
     try:
 
-        # Send request to local Ollama server
-        with urllib.request.urlopen(
-            request,
-            timeout=120
-        ) as response:
-
-            # Read Ollama response
-            response_data = response.read().decode(
-                "utf-8"
-            )
-
-        # Convert JSON response into Python dictionary
-        result = json.loads(
-            response_data
+        # Send request to the hosted LLM API
+        response = requests.post(
+            f"{LLM_BASE_URL}/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            },
+            json=request_data,
+            timeout=REQUEST_TIMEOUT
         )
+
+        # Raise an error for 4xx / 5xx responses
+        response.raise_for_status()
+
+        result = response.json()
 
         # Return only the generated text
-        return result.get(
-            "response",
-            ""
+        return (
+            result["choices"][0]["message"]["content"]
+            or ""
         )
 
-    except urllib.error.URLError as error:
+    except requests.exceptions.HTTPError as error:
+
+        # Include the provider's error message to ease debugging
+        details = ""
+        if error.response is not None:
+            details = error.response.text[:500]
 
         raise RuntimeError(
-            f"Could not connect to Ollama: {error}"
+            f"LLM API returned an error: {error} {details}"
+        )
+
+    except requests.exceptions.RequestException as error:
+
+        raise RuntimeError(
+            f"Could not connect to LLM API: {error}"
+        )
+
+    except (KeyError, IndexError, ValueError) as error:
+
+        raise RuntimeError(
+            f"Unexpected response format from LLM API: {error}"
         )
