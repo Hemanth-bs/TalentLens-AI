@@ -1128,7 +1128,7 @@ useEffect(() => {
     if (
       isLoggedIn &&
       user?.role === "candidate" &&
-      activeSection === "Find Jobs"
+      (activeSection === "Find Jobs" || activeSection === "Dashboard")
     ) {
       loadCandidateJobs();
     }
@@ -1290,7 +1290,7 @@ useEffect(() => {
     if (
       isLoggedIn &&
       user?.role === "candidate" &&
-      activeSection === "My Applications"
+      (activeSection === "My Applications" || activeSection === "Dashboard")
     ) {
       loadCandidateApplications();
     }
@@ -3504,8 +3504,8 @@ useEffect(() => {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: "16px" }}>
                 {[
                   { label: "Profile skills", value: Array.isArray(candidateProfile.skills) ? candidateProfile.skills.length : 0, note: "Skills added to your profile", action: "Profile", cta: "Update profile" },
-                  { label: "Applications", value: candidateApplications.length, note: "Applications loaded in this session", action: "My Applications", cta: "View applications" },
-                  { label: "Available jobs", value: candidateJobs.length, note: "Jobs loaded when you browse jobs", action: "Find Jobs", cta: "Browse jobs" }
+                  { label: "Applications", value: applicationsLoading ? "…" : candidateApplications.length, note: "Applications you have submitted", action: "My Applications", cta: "View applications" },
+                  { label: "Available jobs", value: jobsLoading ? "…" : candidateJobs.length, note: "Jobs open for applying", action: "Find Jobs", cta: "Browse jobs" }
                 ].map((item) => (
                   <article key={item.label} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: "16px", padding: "20px" }}>
                     <p style={{ margin: 0, color: "#64748b", fontSize: "13px", fontWeight: "600" }}>{item.label}</p>
