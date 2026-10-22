@@ -108,7 +108,16 @@ function AppContent() {
   // AUTHENTICATION STATE
   // ---------------------------------------------
 
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+  try {
+    return Boolean(
+      localStorage.getItem("talentlens_token") &&
+      localStorage.getItem("talentlens_user")
+    );
+  } catch {
+    return false;
+  }
+});
 
   const [user, setUser] = useState(() => {
     try {
@@ -696,7 +705,21 @@ function AppContent() {
   // UI STATE
   // ---------------------------------------------
 
-  const [activeSection, setActiveSection] = useState("Dashboard");
+  const [activeSection, setActiveSection] = useState(() => {
+  try {
+    return sessionStorage.getItem("talentlens_section") || "Dashboard";
+  } catch {
+    return "Dashboard";
+  }
+});
+
+useEffect(() => {
+  try {
+    sessionStorage.setItem("talentlens_section", activeSection);
+  } catch {
+    // ignore storage errors
+  }
+}, [activeSection]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [applicationConfirmJob, setApplicationConfirmJob] = useState(null);
@@ -1366,6 +1389,7 @@ function AppContent() {
   const handleLogout = () => {
     localStorage.removeItem("talentlens_token");
     localStorage.removeItem("talentlens_user");
+    sessionStorage.removeItem("talentlens_section");
 
     setUser(null);
     setIsLoggedIn(false);
@@ -1378,6 +1402,34 @@ function AppContent() {
     setProfileMessage("");
     setProfileError("");
   };
+
+  useEffect(() => {
+  const token = localStorage.getItem("talentlens_token");
+  if (!isLoggedIn || !token) return;
+
+  let cancelled = false;
+
+  const verifySession = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/auth/profile`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      // Log out ONLY if the server says the token is invalid or expired.
+      if (!cancelled && (response.status === 401 || response.status === 403)) {
+        handleLogout();
+      }
+    } catch {
+      // Network error or a sleeping Render server: stay logged in.
+    }
+  };
+
+  verifySession();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
 
   // ---------------------------------------------
   // NAVIGATION
