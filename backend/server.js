@@ -38,21 +38,65 @@ const PORT = process.env.PORT || 5000;
 
 
 // ---------------------------------------------
+// CORS CONFIGURATION
+// ---------------------------------------------
+//
+// FRONTEND_URL can contain one URL or several URLs
+// separated by commas, for example:
+//
+//   https://talentlens-ai-frontend.vercel.app
+//   https://a.vercel.app,https://b.vercel.app
+//
+// Spaces and trailing slashes are removed automatically,
+// because the browser sends the origin WITHOUT a trailing
+// slash and the values must match exactly.
+
+const normalizeOrigin = (value) =>
+    value
+        .trim()
+        .replace(/^["']|["']$/g, "")
+        .replace(/\/+$/, "");
+
+const frontendOrigins = (process.env.FRONTEND_URL || "")
+    .split(",")
+    .map(normalizeOrigin)
+    .filter(Boolean);
+
+const allowedOrigins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    ...frontendOrigins,
+];
+
+
+// ---------------------------------------------
 // MIDDLEWARE
 // ---------------------------------------------
 
-app.use(express.json());
-
-// Allow frontend running on Vite
 app.use(
     cors({
-        origin: [
-            "http://localhost:5173",
-            "http://127.0.0.1:5173",
-            process.env.FRONTEND_URL,
-        ].filter(Boolean),
+        origin: allowedOrigins,
+        methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allowedHeaders: ["Content-Type", "Authorization"],
     })
 );
+
+app.use(express.json());
+
+
+// ---------------------------------------------
+// HEALTH CHECK
+// ---------------------------------------------
+
+app.get("/health", (req, res) => {
+
+    res.json({
+        success: true,
+        service: "TalentLens AI Backend",
+        status: "healthy"
+    });
+
+});
 
 
 // ---------------------------------------------
@@ -735,7 +779,13 @@ const startServer = async () => {
         app.listen(PORT, () => {
 
             console.log(
-                `TalentLens AI Backend running on http://localhost:${PORT}`
+                `TalentLens AI Backend running on port ${PORT}`
+            );
+
+            // Helps debug CORS problems in the hosting logs
+            console.log(
+                "Allowed CORS origins:",
+                allowedOrigins.join(", ")
             );
 
         });
