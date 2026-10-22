@@ -1,33 +1,25 @@
-# Import the SentenceTransformer model
-from sentence_transformers import SentenceTransformer
-
-# Import cosine similarity to compare two vectors
-from sklearn.metrics.pairwise import cosine_similarity
-
-
-# Load a pretrained sentence-embedding model
-# It converts text into numerical vectors representing meaning
-model = SentenceTransformer("all-MiniLM-L6-v2")
-
-
 # Calculate semantic similarity between resume and job description
+# using hosted embeddings (no local ML model).
+
+from services.embeddingService import embed_texts
+
+
 def calculate_semantic_match(
     resume_text: str,
     job_description: str
 ):
 
-    # Convert both texts into embedding vectors
-    resume_embedding = model.encode([resume_text])
-    job_embedding = model.encode([job_description])
+    # Convert both texts into normalized embedding vectors
+    vectors = embed_texts(
+        [resume_text, job_description],
+        task_type="SEMANTIC_SIMILARITY"
+    )
 
-    # Compare the two vectors using cosine similarity
-    similarity = cosine_similarity(
-        resume_embedding,
-        job_embedding
-    )[0][0]
+    # Vectors are normalized, so dot product = cosine similarity
+    similarity = float(vectors[0] @ vectors[1])
 
-    # Convert similarity from 0-1 into a percentage
-    score = round(similarity * 100, 2)
+    # Keep the score within 0-100
+    score = round(max(0.0, min(1.0, similarity)) * 100, 2)
 
     return {
         "semantic_score": score
